@@ -1,0 +1,6 @@
+{
+  "name": "Öğrenci Takip Platformu",
+  "description": "Öğretmen, öğrenci ve kurumlar için günlük/haftalık ödev, kaynak ve çalışma takip platformu",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
