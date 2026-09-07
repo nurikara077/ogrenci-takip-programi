@@ -6,15 +6,8 @@ import { StudentList } from './components/teacher/StudentList';
 import { StudentDetail } from './components/teacher/StudentDetail';
 import { WeeklyPlanner } from './components/teacher/WeeklyPlanner';
 import { ResourcesView } from './components/teacher/ResourcesView';
-import { TeacherReports } from './components/teacher/TeacherReports';
-import { ClassAnalytics } from './components/teacher/ClassAnalytics';
 import { TeacherTasksView } from './components/teacher/TeacherTasksView';
-import { StudentDashboard } from './components/student/StudentDashboard';
 import { StudentTasksView } from './components/student/StudentTasksView';
-import { StudentWeeklyProgram } from './components/student/StudentWeeklyProgram';
-import { StudentResourcesView } from './components/student/StudentResourcesView';
-import { StudentPerformanceView } from './components/student/StudentPerformanceView';
-import { StudentOverdueTasksView } from './components/student/StudentOverdueTasksView';
 import { InstituteDashboard } from './components/admin/InstituteDashboard';
 import { AdminTeachersView } from './components/admin/AdminTeachersView';
 import { AdminClassesView } from './components/admin/AdminClassesView';
@@ -38,7 +31,7 @@ function MainAppContent() {
     if (currentUser?.role === 'TEACHER') {
       setActiveTab('teacher-dashboard');
     } else if (currentUser?.role === 'STUDENT') {
-      setActiveTab('student-dashboard');
+      setActiveTab('student-tasks');
     } else if (currentUser?.role === 'INSTITUTE_ADMIN') {
       setActiveTab('admin-dashboard');
     }
@@ -84,7 +77,7 @@ function MainAppContent() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* TEACHER VIEWS */}
         {activeTab === 'teacher-dashboard' && (
           <TeacherDashboard
@@ -124,37 +117,9 @@ function MainAppContent() {
           <ResourcesView initialSelectedStudentId={selectedStudentId || undefined} />
         )}
 
-        {activeTab === 'teacher-reports' && (
-          <TeacherReports onSelectStudent={handleSelectStudent} />
-        )}
-
-        {activeTab === 'teacher-analytics' && (
-          <ClassAnalytics onSelectStudent={handleSelectStudent} />
-        )}
-
         {/* STUDENT VIEWS */}
-        {activeTab === 'student-dashboard' && (
-          <StudentDashboard onNavigateTab={setActiveTab} />
-        )}
-
         {activeTab === 'student-tasks' && (
           <StudentTasksView />
-        )}
-
-        {activeTab === 'student-weekly' && (
-          <StudentWeeklyProgram />
-        )}
-
-        {activeTab === 'student-resources' && (
-          <StudentResourcesView />
-        )}
-
-        {activeTab === 'student-overdue' && (
-          <StudentOverdueTasksView onNavigateTab={setActiveTab} />
-        )}
-
-        {activeTab === 'student-performance' && (
-          <StudentPerformanceView />
         )}
 
         {/* INSTITUTE ADMIN VIEWS */}
@@ -184,22 +149,6 @@ function MainAppContent() {
           <ResourcesView initialSelectedStudentId={selectedStudentId || undefined} />
         )}
 
-        {activeTab === 'admin-tasks' && (
-          <TeacherTasksView onSelectStudent={handleSelectStudent} />
-        )}
-
-        {activeTab === 'admin-progress' && (
-          <ClassDetailView
-            classId={selectedClassId || 'class-8a'}
-            onBack={() => setActiveTab('admin-dashboard')}
-            onSelectStudent={handleSelectStudent}
-          />
-        )}
-
-        {activeTab === 'admin-reports' && (
-          <TeacherReports onSelectStudent={handleSelectStudent} />
-        )}
-
         {activeTab === 'admin-class-detail' && (
           <ClassDetailView
             classId={selectedClassId || 'class-8a'}
@@ -215,15 +164,6 @@ function MainAppContent() {
         onClose={() => setIsNotificationsOpen(false)}
       />
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Öğrenci Takip Platformu © 2026 • MVP Sürümü</span>
-          <span className="text-slate-400">
-            Tarhan Koleji & Bireysel Özel Ders Entegrasyonu • 31 Ağustos - 6 Eylül 2026
-          </span>
-        </div>
-      </footer>
     </div>
   );
 }

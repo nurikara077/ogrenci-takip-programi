@@ -174,9 +174,15 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
   const [copyError, setCopyError] = useState('');
 
   const handleOpenCopyModal = (task: DailyTask) => {
+    const nextAvailableDay = DAYS_OF_WEEK.find((day) => weekDatesMap[day] >= DEFAULT_SIMULATION_DATE);
+    if (!nextAvailableDay) {
+      setToastMessage('Bu haftada planlanabilecek gün kalmadı. Sonraki haftaya geçerek ödevi kopyalayın.');
+      setTimeout(() => setToastMessage(''), 4000);
+      return;
+    }
     setCopyModalTask(task);
-    setCopyTargetDay('Cuma');
-    setCopyTargetDate(weekDatesMap['Cuma']);
+    setCopyTargetDay(nextAvailableDay);
+    setCopyTargetDate(weekDatesMap[nextAvailableDay]);
     setCopyTargetStudentId(task.studentId);
     setCopyError('');
   };
@@ -184,6 +190,10 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
   const handleConfirmCopy = () => {
     if (!copyModalTask) return;
     setCopyError('');
+    if (copyTargetDate < DEFAULT_SIMULATION_DATE) {
+      setCopyError('Yeni ödev yalnızca bugüne veya gelecek bir tarihe kopyalanabilir.');
+      return;
+    }
     try {
       copyDailyTask(copyModalTask.id, copyTargetDate, copyTargetDay, copyTargetStudentId);
       setToastMessage(`Görev başarıyla ${copyTargetDay} gününe kopyalandı ve bağımsız yeni görev oluşturuldu!`);
@@ -240,7 +250,7 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
     setIsTaskModalOpen(true);
   };
 
-  // Smart Distribution: splits pages across 5 days (Pazartesi - Cuma)
+  // Smart Distribution: creates work only for today and future dates.
   const handleRunSmartDistribution = () => {
     setWizardError('');
 
@@ -251,6 +261,13 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
 
     if (wizardDailyQuestions <= 0 && wizardDailyMinutes <= 0) {
       setWizardError('Lütfen en az bir hedef soru sayısı veya çalışma süresi belirleyin.');
+      return;
+    }
+
+    const daysList = (['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'] as const)
+      .filter((day) => weekDatesMap[day] >= DEFAULT_SIMULATION_DATE);
+    if (daysList.length === 0) {
+      setWizardError('Bu haftada planlanabilecek gün kalmadı. Sonraki haftaya geçerek ödev dağıtın.');
       return;
     }
 
@@ -267,7 +284,7 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
           selectedStudentId,
           wizardStartPage,
           wizardEndPage,
-          weekDatesMap['Cuma'],
+          weekDatesMap[daysList[daysList.length - 1]],
           wizardDailyQuestions,
           'Haftalık akıllı dağıtım ile atandı'
         );
@@ -283,9 +300,7 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
       }
 
       const totalPages = wizardEndPage - wizardStartPage + 1;
-      const pagesPerDay = Math.max(1, Math.ceil(totalPages / 5));
-
-      const daysList = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'] as const;
+      const pagesPerDay = Math.max(1, Math.ceil(totalPages / daysList.length));
       let currentP = wizardStartPage;
 
       const subId = res?.subjectId || currentTeacherProfile?.branchSubjectId || 'sub-mat';
@@ -513,6 +528,7 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3.5 items-start">
         {DAYS_OF_WEEK.map((day) => {
           const dayDate = weekDatesMap[day];
+          const isPastDay = dayDate < DEFAULT_SIMULATION_DATE;
           const tasksForDay = studentTasks.filter((t) => t.dayOfWeek === day);
 
           const totalQuestionsPlanned = tasksForDay.reduce((s, t) => s + (t.targetQuestionCount || 0), 0);
@@ -759,13 +775,19 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
 
               {/* Add Task Button for this day */}
               <div className="p-2 border-t border-slate-100 bg-slate-50/50">
-                <button
-                  onClick={() => handleOpenAddTask(day)}
-                  className="w-full py-1.5 px-2 bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Görev Ekle
-                </button>
+                {isPastDay ? (
+                  <span className="w-full py-1.5 px-2 bg-slate-100 text-slate-400 rounded-lg text-xs font-semibold flex items-center justify-center">
+                    Geçmiş gün
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleOpenAddTask(day)}
+                    className="w-full py-1.5 px-2 bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Görev Ekle
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -1025,7 +1047,7 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
                   }}
                   className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 >
-                  {DAYS_OF_WEEK.map((d) => (
+                  {DAYS_OF_WEEK.filter((d) => weekDatesMap[d] >= DEFAULT_SIMULATION_DATE).map((d) => (
                     <option key={d} value={d}>
                       {d} ({weekDatesMap[d]})
                     </option>
@@ -1041,6 +1063,7 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
                 <input
                   type="date"
                   value={copyTargetDate}
+                  min={DEFAULT_SIMULATION_DATE}
                   onChange={(e) => setCopyTargetDate(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />

@@ -356,4 +356,3 @@ export const StudyRecordModal: React.FC<StudyRecordModalProps> = ({ isOpen, onCl
     </div>
   );
 };
-

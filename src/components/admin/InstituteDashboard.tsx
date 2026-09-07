@@ -1,18 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { 
-  Building2, 
-  Users, 
-  GraduationCap, 
-  CheckCircle2, 
-  TrendingUp, 
-  AlertTriangle, 
-  ChevronRight, 
-  ArrowUpRight,
-  Plus,
-  Database
-} from 'lucide-react';
-import { DatabaseStatusModal } from '../common/DatabaseStatusModal';
+import { BookOpen, ChevronRight, GraduationCap, Users } from 'lucide-react';
 
 interface InstituteDashboardProps {
   onSelectClass: (classId: string) => void;
@@ -20,200 +8,121 @@ interface InstituteDashboardProps {
 }
 
 export const InstituteDashboard: React.FC<InstituteDashboardProps> = ({ onSelectClass, onNavigateTab }) => {
-  const { 
-    currentUser, 
-    organizations, 
-    classes, 
-    studentProfiles, 
-    teacherProfiles, 
-    users, 
-    dailyTasks, 
-    studyRecords 
+  const {
+    organizations,
+    classes,
+    studentProfiles,
+    teacherProfiles,
+    teacherClassRelations,
+    resources,
   } = useApp();
 
-  const currentOrg = organizations[0];
-  const institutionStudents = studentProfiles.filter((s) => s.organizationId === currentOrg?.id);
-  const institutionTeachers = teacherProfiles.filter((t) => t.organizationId === currentOrg?.id);
-  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
+  const organization = organizations[0];
+  const activeResources = resources.filter((resource) => !resource.isArchived && resource.status !== 'ARCHIVED');
 
-  // Overall statistics
-  const totalTasks = dailyTasks.length;
-  const completedTasks = dailyTasks.filter((t) => t.isCompleted).length;
-  const overallRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const actions = [
+    {
+      title: 'Öğrenciler',
+      description: 'Öğrenciyi ekleyin ve sınıfına atayın.',
+      count: studentProfiles.length,
+      label: 'Öğrencileri yönet',
+      tab: 'admin-students',
+      icon: Users,
+      color: 'bg-blue-50 text-blue-700',
+    },
+    {
+      title: 'Öğretmenler',
+      description: 'Branşı belirleyin ve sınıflara bağlayın.',
+      count: teacherProfiles.length,
+      label: 'Öğretmenleri yönet',
+      tab: 'admin-teachers',
+      icon: GraduationCap,
+      color: 'bg-violet-50 text-violet-700',
+    },
+    {
+      title: 'Sınıflar',
+      description: 'Sınıfı ve öğretmen eşleşmelerini düzenleyin.',
+      count: classes.length,
+      label: 'Sınıfları yönet',
+      tab: 'admin-classes',
+      icon: GraduationCap,
+      color: 'bg-amber-50 text-amber-700',
+    },
+    {
+      title: 'Kaynaklar',
+      description: 'Kitabı ekleyin, ilgili branş öğretmenine verin.',
+      count: activeResources.length,
+      label: 'Kaynakları yönet',
+      tab: 'admin-resources',
+      icon: BookOpen,
+      color: 'bg-emerald-50 text-emerald-700',
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
-              Kurum Yöneticisi Paneli
-            </span>
-            <span className="text-xs text-slate-400">•</span>
-            <span className="text-xs text-slate-500 font-medium">{currentOrg?.name}</span>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">
-            Kurum Akademik Takip ve İzleme Merkezi
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Tüm sınıfların, branş öğretmenlerinin ve öğrencilerin haftalık performans ve ödev grafikleri
-          </p>
+    <div className="max-w-5xl mx-auto space-y-6">
+      <section className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8">
+        <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Kurum Yönetimi</p>
+        <h1 className="mt-1 text-2xl font-bold text-slate-900">{organization?.name || 'Kurum'} kurulumu</h1>
+        <p className="mt-2 text-sm text-slate-600 max-w-2xl">
+          Önce öğrencileri ve öğretmenleri sınıflara yerleştirin. Ardından kaynakları ilgili branş öğretmenlerine atayın.
+        </p>
+      </section>
+
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {actions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <button
+              key={action.tab}
+              type="button"
+              onClick={() => onNavigateTab(action.tab)}
+              className="text-left bg-white border border-slate-200 rounded-2xl p-5 hover:border-blue-300 hover:shadow-sm transition-all"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <span className={`w-10 h-10 rounded-xl flex items-center justify-center ${action.color}`}>
+                  <Icon className="w-5 h-5" />
+                </span>
+                <span className="text-2xl font-bold text-slate-900">{action.count}</span>
+              </div>
+              <h2 className="mt-4 font-bold text-slate-900">{action.title}</h2>
+              <p className="mt-1 text-xs text-slate-500">{action.description}</p>
+              <span className="mt-4 text-xs font-semibold text-blue-700 inline-flex items-center gap-1">
+                {action.label} <ChevronRight className="w-3.5 h-3.5" />
+              </span>
+            </button>
+          );
+        })}
+      </section>
+
+      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h2 className="font-bold text-slate-900">Sınıf atamaları</h2>
+          <p className="mt-0.5 text-xs text-slate-500">Bir sınıfa tıklayarak öğrenci ve öğretmen eşleşmelerini görün.</p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={() => setIsDbModalOpen(true)}
-            className="px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition-colors inline-flex items-center gap-1.5 shadow-2xs"
-            title="PostgreSQL / Supabase Durumu, Migration ve Multi-Tenant Yönetimi"
-          >
-            <Database className="w-4 h-4 text-emerald-600" />
-            <span>Sistem & DB Yönetimi</span>
-          </button>
-          <button
-            onClick={() => onNavigateTab('admin-classes')}
-            className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5"
-          >
-            <Users className="w-4 h-4" />
-            Sınıfları Yönet
-          </button>
+        <div className="divide-y divide-slate-100">
+          {classes.map((classroom) => {
+            const studentCount = studentProfiles.filter((student) => student.classId === classroom.id).length;
+            const teacherCount = teacherClassRelations.filter((relation) => relation.classId === classroom.id).length;
+            return (
+              <button
+                key={classroom.id}
+                type="button"
+                onClick={() => onSelectClass(classroom.id)}
+                className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors"
+              >
+                <span>
+                  <span className="block font-semibold text-slate-900">{classroom.name} Şubesi</span>
+                  <span className="block mt-0.5 text-xs text-slate-500">
+                    {studentCount} öğrenci · {teacherCount} öğretmen ataması
+                  </span>
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+            );
+          })}
         </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase">
-            <span>Toplam Öğrenci</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-slate-900">{institutionStudents.length}</span>
-            <span className="text-xs text-slate-500 font-medium">kayıtlı öğrenci</span>
-          </div>
-          <div className="text-xs text-slate-400">2 aktif şube</div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase">
-            <span>Öğretmen Kadrosu</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <GraduationCap className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-slate-900">{institutionTeachers.length}</span>
-            <span className="text-xs text-slate-500 font-medium">branş öğretmeni</span>
-          </div>
-          <div className="text-xs text-slate-400">Matematik, Türkçe, Fen</div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase">
-            <span>Okul Geneli Ödev Tamamlama</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-slate-900">%{overallRate}</span>
-            <span className="text-xs text-slate-500 font-medium">başarı</span>
-          </div>
-          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-            <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${overallRate}%` }} />
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase">
-            <span>Aktif Sınıf Sayısı</span>
-            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Building2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-slate-900">{classes.length}</span>
-            <span className="text-xs text-slate-500 font-medium">şube</span>
-          </div>
-          <div className="text-xs text-purple-700 font-medium">8-A ve 8-B</div>
-        </div>
-      </div>
-
-      {/* Sınıflar Karşılaştırma Tablosu */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h2 className="font-bold text-slate-900 text-base">Şube & Sınıf Başarı Karşılaştırması</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Sınıfların ödev tamamlama ve performans metrikleri</p>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-semibold uppercase">
-                <th className="py-3.5 px-6">Sınıf</th>
-                <th className="py-3.5 px-4">Öğrenci Sayısı</th>
-                <th className="py-3.5 px-4">Görev Verilen Dersler</th>
-                <th className="py-3.5 px-4">Tamamlanma Oranı</th>
-                <th className="py-3.5 px-6 text-right">İşlem</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {classes.map((cls) => {
-                const sInClass = studentProfiles.filter((s) => s.classId === cls.id);
-                const sIds = sInClass.map((s) => s.id);
-                const classTasks = dailyTasks.filter((t) => sIds.includes(t.studentId));
-                const classCompleted = classTasks.filter((t) => t.isCompleted).length;
-                const rate = classTasks.length > 0 ? Math.round((classCompleted / classTasks.length) * 100) : 0;
-
-                return (
-                  <tr
-                    key={cls.id}
-                    onClick={() => onSelectClass(cls.id)}
-                    className="hover:bg-slate-50 cursor-pointer transition-colors"
-                  >
-                    <td className="py-4 px-6 font-bold text-slate-900">
-                      <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
-                          {cls.name}
-                        </span>
-                        <span>{cls.name} Sınıfı</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 font-semibold text-slate-700">{sInClass.length} Öğrenci</td>
-                    <td className="py-4 px-4 text-xs text-slate-600">Matematik, Türkçe, Fen Bilimleri</td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-800">%{rate}</span>
-                        <div className="w-24 bg-slate-100 h-2 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${rate >= 70 ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                            style={{ width: `${rate}%` }}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <button className="px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg inline-flex items-center gap-1 transition-colors">
-                        Sınıf Detayı <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Database & Multi-Tenant Status Modal */}
-      <DatabaseStatusModal
-        isOpen={isDbModalOpen}
-        onClose={() => setIsDbModalOpen(false)}
-      />
+      </section>
     </div>
   );
 };

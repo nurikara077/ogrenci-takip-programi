@@ -1,341 +1,204 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { DailyTask } from '../../types';
-import { 
-  CheckCircle2, 
-  Calendar, 
-  Clock, 
-  BookOpen, 
-  AlertTriangle, 
-  Check, 
-  PlusCircle, 
-  Filter,
-  Search,
-  ChevronRight
-} from 'lucide-react';
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, Lock, PlusCircle } from 'lucide-react';
 import { StudyRecordModal } from './StudyRecordModal';
+import { DEFAULT_SIMULATION_DATE } from '../../utils/dateUtils';
+
+type TaskSection = {
+  id: 'overdue' | 'current' | 'upcoming';
+  title: string;
+  description: string;
+  tasks: DailyTask[];
+  tone: 'rose' | 'blue' | 'slate';
+};
 
 export const StudentTasksView: React.FC = () => {
-  const { 
-    currentUser, 
-    studentProfiles, 
-    dailyTasks, 
-    resources, 
+  const {
+    currentUser,
+    studentProfiles,
+    dailyTasks,
+    resources,
     subjects,
     getTaskRealization,
-    isTaskActiveOnDate,
-    isTaskOverdue
+    isTaskOverdue,
   } = useApp();
 
-  const currentStudent = studentProfiles.find((sp) => sp.userId === currentUser.id);
-  const studentId = currentStudent?.id || 'sp-mehmet';
-  const todayStr = '2026-08-31';
+  const [selectedTask, setSelectedTask] = useState<DailyTask | null>(null);
+  const currentStudent = studentProfiles.find((student) => student.userId === currentUser.id);
+  const studentId = currentStudent?.id;
+  const today = DEFAULT_SIMULATION_DATE;
 
-  // Filters: 'ALL' | 'TODAY' | 'OVERDUE' | 'COMPLETED'
-  const [activeFilter, setActiveFilter] = useState<'ALL' | 'TODAY' | 'OVERDUE' | 'COMPLETED'>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('ALL');
+  const myTasks = useMemo(
+    () => dailyTasks
+      .filter((task) => task.studentId === studentId && !task.isDeleted)
+      .sort((left, right) => (left.startDate || left.taskDate).localeCompare(right.startDate || right.taskDate)),
+    [dailyTasks, studentId]
+  );
 
-  // Study record modal state
-  const [selectedTaskForRecord, setSelectedTaskForRecord] = useState<DailyTask | null>(null);
-  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
-
-  // Student's tasks
-  const myTasks = useMemo(() => {
-    return dailyTasks.filter((t) => t.studentId === studentId && !t.isDeleted);
-  }, [dailyTasks, studentId]);
-
-  // Counts for filter pills
-  const counts = useMemo(() => {
-    let today = 0;
-    let overdue = 0;
-    let completed = 0;
-
-    myTasks.forEach((task) => {
-      const calc = getTaskRealization(task.id);
-      const isComp = task.isCompleted || calc.verificationStatus === 'VERIFIED';
-      
-      if (isComp) {
-        completed++;
-      } else {
-        if (isTaskOverdue(task, todayStr)) {
-          overdue++;
-        }
-        if (isTaskActiveOnDate(task, todayStr)) {
-          today++;
-        }
-      }
+  const sections = useMemo<TaskSection[]>(() => {
+    const openTasks = myTasks.filter((task) => {
+      const realization = getTaskRealization(task.id);
+      return realization.verificationStatus !== 'VERIFIED';
     });
 
-    return {
-      all: myTasks.length,
-      today,
-      overdue,
-      completed,
-    };
-  }, [myTasks, getTaskRealization, isTaskActiveOnDate, isTaskOverdue, todayStr]);
+    const overdue = openTasks.filter((task) => isTaskOverdue(task, today));
+    const upcoming = openTasks.filter((task) => (task.startDate || task.taskDate) > today);
+    const current = openTasks.filter((task) => !overdue.includes(task) && !upcoming.includes(task));
 
-  // Filtered tasks
-  const filteredTasks = useMemo(() => {
-    return myTasks.filter((task) => {
-      const calc = getTaskRealization(task.id);
-      const isComp = task.isCompleted || calc.verificationStatus === 'VERIFIED';
+    return [
+      {
+        id: 'overdue',
+        title: 'Eksik kalan ödevler',
+        description: 'Geçmiş haftalardan kalan görevler. İstersen şimdi tamamlayabilirsin.',
+        tasks: overdue,
+        tone: 'rose',
+      },
+      {
+        id: 'current',
+        title: 'Şimdi yapabileceklerin',
+        description: 'Başlangıç tarihi gelmiş, açık görevlerin.',
+        tasks: current,
+        tone: 'blue',
+      },
+      {
+        id: 'upcoming',
+        title: 'Yaklaşan ödevler',
+        description: 'Öğretmeninin gelecek günler için dağıttığı plan.',
+        tasks: upcoming,
+        tone: 'slate',
+      },
+    ];
+  }, [getTaskRealization, isTaskOverdue, myTasks, today]);
 
-      if (activeFilter === 'TODAY') {
-        if (!isTaskActiveOnDate(task, todayStr)) return false;
-      } else if (activeFilter === 'OVERDUE') {
-        if (isComp || !isTaskOverdue(task, todayStr)) return false;
-      } else if (activeFilter === 'COMPLETED') {
-        if (!isComp) return false;
-      }
+  const openTaskCount = sections.reduce((total, section) => total + section.tasks.length, 0);
 
-      if (selectedSubjectFilter !== 'ALL' && task.subjectId !== selectedSubjectFilter) {
-        return false;
-      }
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const res = resources.find((r) => r.id === task.resourceId);
-        const title = res?.title?.toLowerCase() || '';
-        const desc = task.description?.toLowerCase() || '';
-        if (!title.includes(q) && !desc.includes(q)) return false;
-      }
-
-      return true;
-    });
-  }, [myTasks, activeFilter, selectedSubjectFilter, searchQuery, resources, getTaskRealization, isTaskActiveOnDate, isTaskOverdue, todayStr]);
-
-  const handleOpenRecordModal = (task: DailyTask) => {
-    setSelectedTaskForRecord(task);
-    setIsRecordModalOpen(true);
+  const sectionStyle = {
+    rose: 'border-rose-200 bg-rose-50/40 text-rose-800',
+    blue: 'border-blue-200 bg-blue-50/40 text-blue-800',
+    slate: 'border-slate-200 bg-slate-50 text-slate-700',
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Top Header */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Ödevlerim</h1>
+      <section className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Ödev Takibim</p>
+        <div className="mt-1 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Merhaba, {currentUser.fullName.split(' ')[0]}</h1>
+            <p className="mt-1 text-sm text-slate-600">Geçmişten kalanları, bugünün görevlerini ve gelecek planını tek yerde gör.</p>
           </div>
-          <p className="text-sm text-slate-600 mt-1">
-            Öğretmenlerinizin size atadığı tüm çalışma görevlerini inceleyin ve çalışma kayıtlarınızı girin.
-          </p>
+          <span className="text-xs font-semibold px-3 py-2 rounded-lg bg-slate-100 text-slate-700">
+            {openTaskCount} açık ödev
+          </span>
         </div>
+      </section>
 
-        <div className="text-xs text-slate-500 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-slate-400" />
-          <span>Bugün: <strong className="text-slate-800">31 Ağustos 2026</strong></span>
-        </div>
-      </div>
+      {openTaskCount === 0 ? (
+        <section className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
+          <CheckCircle2 className="w-11 h-11 text-emerald-500 mx-auto" />
+          <h2 className="mt-3 font-bold text-slate-900">Açık ödevin yok</h2>
+          <p className="mt-1 text-sm text-slate-500">Öğretmenin yeni bir plan oluşturduğunda burada görünecek.</p>
+        </section>
+      ) : (
+        sections.map((section) => section.tasks.length > 0 && (
+          <section key={section.id} className="space-y-3">
+            <div className={`rounded-xl border px-4 py-3 ${sectionStyle[section.tone]}`}>
+              <div className="flex items-center gap-2">
+                {section.id === 'overdue' ? <AlertTriangle className="w-4 h-4" /> : section.id === 'upcoming' ? <CalendarDays className="w-4 h-4" /> : <Clock3 className="w-4 h-4" />}
+                <h2 className="font-bold text-sm">{section.title}</h2>
+              </div>
+              <p className="mt-0.5 text-xs opacity-80">{section.description}</p>
+            </div>
 
-      {/* Filter Tabs */}
-      <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap gap-1.5">
-        {[
-          { id: 'ALL', label: 'Tümü', count: counts.all },
-          { id: 'TODAY', label: 'Bugün', count: counts.today },
-          { id: 'OVERDUE', label: 'Gecikmiş', count: counts.overdue, alert: counts.overdue > 0 },
-          { id: 'COMPLETED', label: 'Tamamlanan', count: counts.completed },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveFilter(tab.id as any)}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center gap-2 ${
-              activeFilter === tab.id
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <span>{tab.label}</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                activeFilter === tab.id
-                  ? 'bg-emerald-500 text-white'
-                  : tab.alert
-                  ? 'bg-rose-100 text-rose-700'
-                  : 'bg-slate-100 text-slate-700'
-              }`}
-            >
-              {tab.count}
-            </span>
-          </button>
-        ))}
-      </div>
+            <div className="space-y-3">
+              {section.tasks.map((task) => {
+                const resource = resources.find((item) => item.id === task.resourceId);
+                const subject = subjects.find((item) => item.id === task.subjectId);
+                const realization = getTaskRealization(task.id);
+                const startDate = task.startDate || task.taskDate;
+                const dueDate = task.dueDate || task.taskDate;
+                const isOverdue = isTaskOverdue(task, today);
+                const isFuture = startDate > today;
+                const isVerified = realization.verificationStatus === 'VERIFIED';
+                const isRejected = realization.verificationStatus === 'REJECTED';
+                const hasRecord = realization.actualQuestions > 0 || realization.actualMinutes > 0;
 
-      {/* Search & Subject Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="relative flex-1 w-full">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Ödev açıklaması veya kitap adı ara..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          />
-        </div>
+                let actionLabel = 'Çalışmayı kaydet';
+                if (isOverdue) actionLabel = 'Geç tamamla';
+                if (isRejected) actionLabel = 'Tekrar kaydet';
+                if (hasRecord && !isRejected) actionLabel = 'Kaydı güncelle';
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-slate-400 shrink-0" />
-          <select
-            value={selectedSubjectFilter}
-            onChange={(e) => setSelectedSubjectFilter(e.target.value)}
-            className="w-full sm:w-44 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          >
-            <option value="ALL">Tüm Dersler</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+                return (
+                  <article key={task.id} className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className="px-2 py-0.5 rounded-md text-[11px] font-bold text-white"
+                          style={{ backgroundColor: subject?.colorHex || '#2563EB' }}
+                        >
+                          {subject?.name || 'Genel'}
+                        </span>
+                        <span className="font-semibold text-slate-900 text-sm truncate">{resource?.title || 'Serbest çalışma'}</span>
+                        {isVerified ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                            <Lock className="w-3 h-3" /> Onaylandı
+                          </span>
+                        ) : isRejected ? (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800">Düzeltme istendi</span>
+                        ) : isOverdue ? (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800">Gecikmiş</span>
+                        ) : hasRecord ? (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">Kontrol bekliyor</span>
+                        ) : null}
+                      </div>
 
-      {/* Task Cards Grid / List */}
-      <div className="space-y-3">
-        {filteredTasks.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500">
-            <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="font-semibold text-slate-700">Seçili filtrede ödev bulunamadı.</p>
-            <p className="text-xs text-slate-400 mt-1">Farklı bir filtre seçerek diğer ödevlerinizi kontrol edebilirsiniz.</p>
-          </div>
-        ) : (
-          filteredTasks.map((task) => {
-            const res = resources.find((r) => r.id === task.resourceId);
-            const sub = subjects.find((s) => s.id === task.subjectId);
-            const calc = getTaskRealization(task.id);
-            const startDate = task.startDate || task.taskDate;
-            const dueDate = task.dueDate || task.taskDate;
-            const isOverdue = isTaskOverdue(task, todayStr);
-            const isCompleted = task.isCompleted || calc.verificationStatus === 'VERIFIED';
-            const progressPercent = task.targetQuestionCount && task.targetQuestionCount > 0
-              ? Math.min(100, Math.round((calc.actualQuestions / task.targetQuestionCount) * 100))
-              : (calc.actualMinutes > 0 ? 100 : 0);
+                      <p className="mt-2 text-sm font-medium text-slate-800">
+                        {task.description || (task.startPage ? `Sayfa ${task.startPage} - ${task.endPage}` : 'Çalışma görevi')}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                        <span>Başlangıç: <strong className="text-slate-700">{startDate}</strong></span>
+                        <span>Son teslim: <strong className={isOverdue ? 'text-rose-700' : 'text-slate-700'}>{dueDate}</strong></span>
+                        {task.targetQuestionCount ? <span>{task.targetQuestionCount} soru</span> : null}
+                        {task.targetDurationMinutes ? <span>{task.targetDurationMinutes} dk</span> : null}
+                        {task.startPage && task.endPage ? <span>Sayfa {task.startPage}-{task.endPage}</span> : null}
+                      </div>
+                      {isRejected && task.verificationNote && (
+                        <p className="mt-2 text-xs text-rose-700">Öğretmen notu: {task.verificationNote}</p>
+                      )}
+                    </div>
 
-            return (
-              <div
-                key={task.id}
-                className={`bg-white rounded-2xl border p-5 transition-all shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                  isCompleted
-                    ? 'border-slate-200 bg-slate-50/50'
-                    : isOverdue
-                    ? 'border-rose-200 bg-rose-50/30'
-                    : 'border-slate-200 hover:border-emerald-300'
-                }`}
-              >
-                {/* Left: Book & Scope Details */}
-                <div className="flex-1 min-w-0 space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className="px-2.5 py-0.5 rounded-md text-xs font-bold text-white"
-                      style={{ backgroundColor: sub?.colorHex || '#10B981' }}
-                    >
-                      {sub?.name || 'Genel'}
-                    </span>
-
-                    <span className="font-bold text-slate-900 text-sm truncate">
-                      {res?.title || 'Serbest Çalışma'}
-                    </span>
-
-                    {/* Status Badge */}
-                    {calc.verificationStatus === 'VERIFIED' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        <Check className="w-3 h-3" />
-                        Doğrulandı
+                    {isFuture ? (
+                      <span className="shrink-0 px-3 py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600">
+                        {startDate} tarihinde başlar
                       </span>
-                    ) : calc.verificationStatus === 'REJECTED' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300">
-                        Yapılmadı
-                      </span>
-                    ) : isOverdue ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 border border-rose-200">
-                        <AlertTriangle className="w-3 h-3" />
-                        Gecikmiş
-                      </span>
-                    ) : isCompleted ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-                        Tamamlandı
+                    ) : isVerified ? (
+                      <span className="shrink-0 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700">
+                        Kayıt kilitlendi
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                        Devam Ediyor
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTask(task)}
+                        className="shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        {actionLabel}
+                      </button>
                     )}
-                  </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ))
+      )}
 
-                  {/* Task Description / Pages */}
-                  <div className="text-sm font-medium text-slate-800">
-                    {task.description || (task.startPage ? `Sayfa ${task.startPage} - ${task.endPage}` : 'Ödev')}
-                  </div>
-
-                  {/* Date Range & Target Info */}
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 pt-1">
-                    <span className="flex items-center gap-1 font-medium text-slate-700">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                      {startDate} - <strong className={isOverdue ? 'text-rose-600' : 'text-slate-900'}>{dueDate}</strong>
-                    </span>
-
-                    {task.targetQuestionCount ? (
-                      <span className="flex items-center gap-1 font-medium">
-                        🎯 Hedef: <strong>{task.targetQuestionCount} soru</strong>
-                      </span>
-                    ) : null}
-
-                    {task.targetDurationMinutes ? (
-                      <span className="flex items-center gap-1 font-medium">
-                        ⏱️ Süre: <strong>{task.targetDurationMinutes} dk</strong>
-                      </span>
-                    ) : null}
-
-                    {task.startPage && task.endPage ? (
-                      <span className="flex items-center gap-1 font-medium">
-                        📖 Sayfa: <strong>{task.startPage} - {task.endPage}</strong>
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* Right: Progress & Action Button */}
-                <div className="flex sm:flex-col items-center sm:items-end justify-between gap-3 shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                  <div className="text-left sm:text-right">
-                    <div className="text-xs font-bold text-slate-800">
-                      {calc.actualQuestions} / {task.targetQuestionCount || 0} soru
-                    </div>
-                    <div className="w-24 bg-slate-200 h-1.5 rounded-full mt-1 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${
-                          progressPercent >= 100 ? 'bg-emerald-500' : 'bg-blue-500'
-                        }`}
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      {calc.actualMinutes} dk kaydedildi
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleOpenRecordModal(task)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors shrink-0"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    <span>Çalışmayı Kaydet</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Study Record Modal */}
-      {isRecordModalOpen && selectedTaskForRecord && (
+      {selectedTask && (
         <StudyRecordModal
-          isOpen={isRecordModalOpen}
-          onClose={() => setIsRecordModalOpen(false)}
-          task={selectedTaskForRecord}
+          isOpen={true}
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
         />
       )}
     </div>

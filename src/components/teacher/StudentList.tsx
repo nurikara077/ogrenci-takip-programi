@@ -289,13 +289,15 @@ export const StudentList: React.FC<StudentListProps> = ({ onSelectStudent, onOpe
                       </td>
 
                       <td className="py-4 px-6 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => onOpenPlannerForStudent(student.id)}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 text-xs font-semibold rounded-lg transition-colors inline-flex items-center gap-1"
-                        >
-                          <Calendar className="w-3.5 h-3.5" />
-                          Program
-                        </button>
+                        {currentUser.role === 'TEACHER' && (
+                          <button
+                            onClick={() => onOpenPlannerForStudent(student.id)}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 text-xs font-semibold rounded-lg transition-colors inline-flex items-center gap-1"
+                          >
+                            <Calendar className="w-3.5 h-3.5" />
+                            Ödev Planla
+                          </button>
+                        )}
                         <button
                           onClick={() => onSelectStudent(student.id)}
                           className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors inline-flex items-center gap-1"
