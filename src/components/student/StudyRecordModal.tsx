@@ -257,7 +257,7 @@ export const StudyRecordModal: React.FC<StudyRecordModalProps> = ({ isOpen, onCl
               <input
                 type="number"
                 min={1}
-                step={5}
+                step={1}
                 value={actualMinutes}
                 onChange={(e) => setActualMinutes(Number(e.target.value))}
                 className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -356,3 +356,4 @@ export const StudyRecordModal: React.FC<StudyRecordModalProps> = ({ isOpen, onCl
     </div>
   );
 };
+
