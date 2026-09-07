@@ -21,9 +21,10 @@ export const StudentResourcesView: React.FC = () => {
   const currentStudent = studentProfiles.find((sp) => sp.userId === currentUser.id);
   const studentId = currentStudent?.id || 'sp-mehmet';
 
+  const institutionResources = resources.filter((r) => !r.isArchived && r.status !== 'ARCHIVED');
   const myAssignedBooks = studentResources.filter((sr) => sr.studentId === studentId);
   const [selectedResourceId, setSelectedResourceId] = useState<string>(
-    myAssignedBooks[0]?.resourceId || ''
+    myAssignedBooks[0]?.resourceId || institutionResources[0]?.id || ''
   );
 
   const [selectedMatrixPage, setSelectedMatrixPage] = useState<{
@@ -31,19 +32,25 @@ export const StudentResourcesView: React.FC = () => {
     topic?: ResourceTopic;
   } | null>(null);
 
-  const activeAssignment = myAssignedBooks.find((sr) => sr.resourceId === (selectedResourceId || myAssignedBooks[0]?.resourceId));
-  const activeResource = resources.find((r) => r.id === activeAssignment?.resourceId);
+  const activeResource = resources.find((r) => r.id === (selectedResourceId || institutionResources[0]?.id));
+  const activeAssignment = myAssignedBooks.find((sr) => sr.resourceId === activeResource?.id);
   const activeSubject = subjects.find((s) => s.id === activeResource?.subjectId);
   const activeTopics = resourceTopics.filter((t) => t.resourceId === activeResource?.id);
 
-  const progress = activeAssignment
-    ? getResourceProgress(studentId, activeAssignment.resourceId)
+  const progress = activeResource
+    ? getResourceProgress(studentId, activeResource.id)
     : { totalCount: 0, completedCount: 0, percentage: 0, completedPages: [] };
 
-  // Generate page numbers in assigned range
+  // Generate page numbers in scope (assigned range if assigned, else total resource range)
   const pages: number[] = [];
   if (activeAssignment) {
     for (let p = activeAssignment.assignedStartPage; p <= activeAssignment.assignedEndPage; p++) {
+      pages.push(p);
+    }
+  } else if (activeResource) {
+    const sPage = activeResource.startPage || 1;
+    const ePage = activeResource.endPage || activeResource.totalPages || 100;
+    for (let p = sPage; p <= ePage; p++) {
       pages.push(p);
     }
   }
@@ -65,15 +72,15 @@ export const StudentResourcesView: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-slate-500">Kitap Seç:</span>
           <select
-            value={activeAssignment?.resourceId}
+            value={activeResource?.id}
             onChange={(e) => setSelectedResourceId(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 max-w-[240px]"
           >
-            {myAssignedBooks.map((sr) => {
-              const res = resources.find((r) => r.id === sr.resourceId);
+            {institutionResources.map((res) => {
+              const isAssigned = myAssignedBooks.some((sr) => sr.resourceId === res.id);
               return (
-                <option key={sr.id} value={sr.resourceId}>
-                  {res?.title}
+                <option key={res.id} value={res.id}>
+                  {isAssigned ? '✓ ' : ''}{res.title}
                 </option>
               );
             })}

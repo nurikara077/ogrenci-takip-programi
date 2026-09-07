@@ -29,6 +29,7 @@ import {
   WeeklyPlan,
   DailyTask,
   StudyRecord,
+  Role,
 } from '../types';
 
 export interface MigrationSummary {
@@ -145,19 +146,27 @@ export class MigrationService {
     }));
 
     // 3. Map Users with multi-tenant institution binding
-    const users: DbUser[] = rawUsers.map((u) => ({
-      id: u.id,
-      institution_id: u.organizationId || 'org-1',
-      email: u.email,
-      password_hash: '$2a$10$prodhashsimulatedpassword123', // Production hash placeholder
-      full_name: u.fullName,
-      role: u.role,
-      phone: u.phone,
-      avatar_url: u.avatarUrl,
-      is_active: u.isActive !== undefined ? u.isActive : true,
-      created_at: u.createdAt || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
+    const supportedRoles: Role[] = ['STUDENT', 'TEACHER', 'INSTITUTE_ADMIN'];
+    const users: DbUser[] = rawUsers.map((u) => {
+      const hasSupportedRole = supportedRoles.includes(u.role);
+      if (!hasSupportedRole) {
+        errors.push(`Kullanıcı '${u.id}' desteklenmeyen '${String(u.role)}' rolüne sahip; güvenli varsayılan olarak pasifleştirildi.`);
+      }
+
+      return {
+        id: u.id,
+        institution_id: u.organizationId || 'org-1',
+        email: u.email,
+        password_hash: '$2a$10$prodhashsimulatedpassword123', // Production hash placeholder
+        full_name: u.fullName,
+        role: hasSupportedRole ? u.role : 'STUDENT',
+        phone: u.phone,
+        avatar_url: u.avatarUrl,
+        is_active: hasSupportedRole && (u.isActive !== undefined ? u.isActive : true),
+        created_at: u.createdAt || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
 
     // 4. Map Classes
     const classes: DbClass[] = rawClasses.map((c) => ({
@@ -207,6 +216,8 @@ export class MigrationService {
         subject_id: t.subjectId,
         resource_id: t.resourceId,
         task_date: t.taskDate,
+        start_date: t.startDate,
+        due_date: t.dueDate,
         day_of_week: t.dayOfWeek,
         task_type: t.taskType,
         target_question_count: t.targetQuestionCount || 0,
@@ -214,6 +225,15 @@ export class MigrationService {
         start_page: t.startPage,
         end_page: t.endPage,
         description: t.description,
+        status: t.status || (t.isCompleted ? 'COMPLETED' : 'PLANNED'),
+        verification_status: t.verificationStatus || 'PENDING',
+        verified_by: t.verifiedBy,
+        verified_at: t.verifiedAt,
+        verification_note: t.verificationNote,
+        original_task_date: t.originalTaskDate,
+        completion_date: t.completionDate,
+        revision_count: t.revisionCount || 0,
+        revision_history: t.revisionHistory,
         is_completed: t.isCompleted,
         is_deleted: false,
         created_at: t.createdAt || new Date().toISOString(),

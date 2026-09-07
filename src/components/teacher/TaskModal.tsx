@@ -61,6 +61,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   // Form states
   const [dayOfWeek, setDayOfWeek] = useState(defaultDayOfWeek);
   const [taskDate, setTaskDate] = useState(defaultDate);
+  const [dueDate, setDueDate] = useState(defaultDate);
   const [subjectId, setSubjectId] = useState(defaultSubjectId);
   const [resourceId, setResourceId] = useState<string>(() => allowedTeacherResources[0]?.id || '');
   const [resourceTopicId, setResourceTopicId] = useState<string>('');
@@ -77,7 +78,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   useEffect(() => {
     if (editTask) {
       setDayOfWeek(editTask.dayOfWeek);
-      setTaskDate(editTask.taskDate);
+      setTaskDate(editTask.startDate || editTask.taskDate);
+      setDueDate(editTask.dueDate || editTask.taskDate);
       setSubjectId(editTask.subjectId);
       setResourceId(editTask.resourceId || '');
       setResourceTopicId(editTask.resourceTopicId || '');
@@ -90,6 +92,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     } else {
       setDayOfWeek(defaultDayOfWeek);
       setTaskDate(defaultDate);
+      setDueDate(defaultDate);
       // Pick first assigned resource for student if accessible by teacher
       const studentAssigned = studentResources.filter(
         (sr) => sr.studentId === selectedStudentId && sr.status === 'ACTIVE' &&
@@ -159,6 +162,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       return;
     }
 
+    if (dueDate && dueDate < taskDate) {
+      setErrorMessage('Bitiş tarihi (son teslim), başlangıç tarihinden önce olamaz.');
+      return;
+    }
+
     const selectedRes = resources.find((r) => r.id === resourceId);
     if (selectedRes?.isArchived) {
       setErrorMessage(`İşlem Reddedildi: Arşivlenmiş bir kaynak ("${selectedRes.title}") ile yeni ödev görevi oluşturulamaz.`);
@@ -203,6 +211,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           resourceTopicId: resourceTopicId || undefined,
           dayOfWeek,
           taskDate,
+          startDate: taskDate,
+          dueDate: dueDate || taskDate,
           taskType,
           targetQuestionCount: Number(targetQuestionCount),
           targetDurationMinutes: Number(targetDurationMinutes),
@@ -221,6 +231,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           resourceTopicId: resourceTopicId || undefined,
           dayOfWeek,
           taskDate,
+          startDate: taskDate,
+          dueDate: dueDate || taskDate,
           taskType,
           targetQuestionCount: Number(targetQuestionCount),
           targetDurationMinutes: Number(targetDurationMinutes),
@@ -266,8 +278,34 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
           )}
 
-          {/* Day & Date Selection */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Day & Date Selection: Start Date & Due Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Başlangıç Tarihi</label>
+              <input
+                type="date"
+                value={taskDate}
+                onChange={(e) => {
+                  setTaskDate(e.target.value);
+                  if (dueDate < e.target.value) {
+                    setDueDate(e.target.value);
+                  }
+                }}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Bitiş Tarihi (Son Gün)</label>
+              <input
+                type="date"
+                value={dueDate}
+                min={taskDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Haftanın Günü</label>
               <select
@@ -283,16 +321,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 <option value="Cumartesi">Cumartesi</option>
                 <option value="Pazar">Pazar</option>
               </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Tarih</label>
-              <input
-                type="date"
-                value={taskDate}
-                onChange={(e) => setTaskDate(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
             </div>
           </div>
 

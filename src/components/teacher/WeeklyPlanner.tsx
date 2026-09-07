@@ -55,7 +55,6 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
     assignResourceToStudent,
     verifyDailyTask,
     rejectDailyTask,
-    completeLateDailyTask,
     canTeacherAccessTask,
     canTeacherAccessResource
   } = useApp();
@@ -83,12 +82,6 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
   // Rejection note modal state
   const [rejectModalTaskId, setRejectModalTaskId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState<string>('');
-
-  // Late completion modal state
-  const [lateModalTaskId, setLateModalTaskId] = useState<string | null>(null);
-  const [lateActualQuestions, setLateActualQuestions] = useState<number>(30);
-  const [lateActualMinutes, setLateActualMinutes] = useState<number>(40);
-  const [lateStudentNotes, setLateStudentNotes] = useState<string>('Geç de olsa tamamlandı');
 
   // Sync if accessibleStudents change
   React.useEffect(() => {
@@ -474,7 +467,7 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
             </button>
           </div>
           <p className="text-[11px] text-rose-800 leading-relaxed">
-            Geçmiş tarihlerde kalan ve öğrenci tarafından henüz teslim edilmeyen bu görevleri <strong>"Geçmiş Görevi Tamamla"</strong> ile gecikmeli olarak tamamlayabilir (orijinal tarihi korunur, durum LATE_COMPLETED olur) veya <strong>"Yeni Güne Kopyala"</strong> ile yeni bir görev olarak programa taşıyabilirsiniz.
+            Geçmiş tarihlerde kalan görevler, öğrenci kendi hesabından gecikmeli olarak tamamlandığında orijinal tarihi korunarak <strong>LATE_COMPLETED</strong> durumuna geçer. Öğretmen yalnızca görevi yeni bir güne kopyalayabilir.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
             {pastIncompleteTasks.map((pt) => {
@@ -497,18 +490,9 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
                     Hedef: {pt.targetQuestionCount || 0} Soru • {pt.targetDurationMinutes || 0} dk
                   </div>
                   <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLateModalTaskId(pt.id);
-                        setLateActualQuestions(pt.targetQuestionCount || 30);
-                        setLateActualMinutes(pt.targetDurationMinutes || 40);
-                        setLateStudentNotes('Geç de olsa tamamlandı');
-                      }}
-                      className="flex-1 py-1.5 px-2 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold rounded-lg text-center transition-colors shadow-2xs"
-                    >
-                      Geçmiş Görevi Tamamla
-                    </button>
+                    <span className="flex-1 py-1.5 px-2 bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-semibold rounded-lg text-center">
+                      Öğrencinin tamamlaması bekleniyor
+                    </span>
                     <button
                       type="button"
                       onClick={() => handleOpenCopyModal(pt)}
@@ -760,19 +744,9 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
 
                               {/* Late completion button if task is past and not completed */}
                               {!task.isCompleted && task.taskDate < DEFAULT_SIMULATION_DATE && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setLateModalTaskId(task.id);
-                                    setLateActualQuestions(task.targetQuestionCount || 30);
-                                    setLateActualMinutes(task.targetDurationMinutes || 40);
-                                    setLateStudentNotes('Geç tamamlandı');
-                                  }}
-                                  className="py-1 px-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold transition-colors"
-                                  title="Geçmiş Görevi Tamamla (LATE_COMPLETED)"
-                                >
-                                  Geç Bitir
-                                </button>
+                                <span className="py-1 px-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-semibold" title="Öğrenci hesabından gecikmeli tamamlama bekleniyor">
+                                  Öğrenci Bekliyor
+                                </span>
                               )}
                             </div>
                           )}
@@ -1172,86 +1146,6 @@ export const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ initialStudentId }
         </div>
       )}
 
-      {/* FAZ 4: Late Completion Modal (LATE_COMPLETED) */}
-      {lateModalTaskId && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-amber-600" />
-                Geçmiş Görevi Tamamla (LATE_COMPLETED)
-              </h3>
-              <button
-                type="button"
-                onClick={() => setLateModalTaskId(null)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Bu geçmiş tarihli görev gecikmeli olarak tamamlanacaktır. Görevin <strong>orijinal planlanan tarihi korunacak</strong> ve tamamlama tarihi olarak bugünün tarihi (<strong>{DEFAULT_SIMULATION_DATE}</strong>) kaydedilecektir. Durum: <strong>Gecikmeli Tamamlandı</strong>.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Çözülen Soru
-                </label>
-                <input
-                  type="number"
-                  value={lateActualQuestions}
-                  onChange={(e) => setLateActualQuestions(Number(e.target.value))}
-                  className="w-full text-xs p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Çalışma Süresi (dk)
-                </label>
-                <input
-                  type="number"
-                  value={lateActualMinutes}
-                  onChange={(e) => setLateActualMinutes(Number(e.target.value))}
-                  className="w-full text-xs p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Öğrenci / Öğretmen Notu
-              </label>
-              <textarea
-                value={lateStudentNotes}
-                onChange={(e) => setLateStudentNotes(e.target.value)}
-                placeholder="Örn: 3 Eylül tarihinde telafi edildi..."
-                className="w-full text-xs p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-hidden resize-none h-20"
-              />
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setLateModalTaskId(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  completeLateDailyTask(lateModalTaskId, DEFAULT_SIMULATION_DATE, lateStudentNotes);
-                  setLateModalTaskId(null);
-                  setToastMessage('Geçmiş görev başarıyla LATE_COMPLETED olarak kaydedildi!');
-                  setTimeout(() => setToastMessage(''), 4000);
-                }}
-                className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-xs transition-colors flex items-center gap-1"
-              >
-                <Check className="w-4 h-4" />
-                Gecikmeli Tamamla
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

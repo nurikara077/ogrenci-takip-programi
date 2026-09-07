@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- 2. ENUM TYPES
 DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('STUDENT', 'TEACHER', 'COORDINATOR', 'INSTITUTE_ADMIN');
+    CREATE TYPE user_role AS ENUM ('STUDENT', 'TEACHER', 'INSTITUTE_ADMIN');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -28,6 +28,12 @@ END $$;
 
 DO $$ BEGIN
     CREATE TYPE task_status AS ENUM ('PLANNED', 'IN_PROGRESS', 'COMPLETED', 'LATE_COMPLETED', 'INCOMPLETE', 'OVERDUE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE verification_status AS ENUM ('PENDING', 'VERIFIED', 'REJECTED');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -205,6 +211,8 @@ CREATE TABLE IF NOT EXISTS daily_tasks (
     subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE RESTRICT,
     resource_id UUID REFERENCES resources(id) ON DELETE RESTRICT,
     task_date DATE NOT NULL,
+    start_date DATE,
+    due_date DATE,
     day_of_week VARCHAR(20) NOT NULL,
     task_type task_type NOT NULL DEFAULT 'QUESTION_TARGET',
     target_question_count INT DEFAULT 0 CHECK (target_question_count >= 0),
@@ -212,11 +220,21 @@ CREATE TABLE IF NOT EXISTS daily_tasks (
     start_page INT,
     end_page INT,
     description TEXT,
+    status task_status NOT NULL DEFAULT 'PLANNED',
+    verification_status verification_status NOT NULL DEFAULT 'PENDING',
+    verified_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    verified_at TIMESTAMPTZ,
+    verification_note TEXT,
+    original_task_date DATE,
+    completion_date DATE,
+    revision_count INT NOT NULL DEFAULT 0,
+    revision_history JSONB NOT NULL DEFAULT '[]'::jsonb,
     is_completed BOOLEAN NOT NULL DEFAULT FALSE,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_daily_task_dates CHECK (due_date IS NULL OR start_date IS NULL OR due_date >= start_date)
 );
 
 -- 16. TASK REALIZATIONS / STUDY RECORDS (Çalışma Kayıtları & Gerçekleşmeler)

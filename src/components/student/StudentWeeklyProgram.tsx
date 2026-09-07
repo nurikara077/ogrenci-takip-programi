@@ -12,13 +12,14 @@ export const StudentWeeklyProgram: React.FC = () => {
   const currentStudent = studentProfiles.find((sp) => sp.userId === currentUser.id);
   const studentId = currentStudent?.id || 'sp-mehmet';
 
+  const [selectedWeek, setSelectedWeek] = useState<'PREV' | 'CURRENT' | 'NEXT'>('CURRENT');
   const [activeDay, setActiveDay] = useState<typeof DAYS[number]>('Pazartesi');
   const [selectedTaskForRecord, setSelectedTaskForRecord] = useState<DailyTask | null>(null);
 
   const studentTasks = dailyTasks.filter((t) => t.studentId === studentId);
   const dayTasks = studentTasks.filter((t) => t.dayOfWeek === activeDay);
 
-  const datesMap: Record<string, string> = {
+  const datesMap: Record<string, string> = selectedWeek === 'CURRENT' ? {
     Pazartesi: '31 Ağustos',
     Salı: '1 Eylül',
     Çarşamba: '2 Eylül',
@@ -26,11 +27,32 @@ export const StudentWeeklyProgram: React.FC = () => {
     Cuma: '4 Eylül',
     Cumartesi: '5 Eylül',
     Pazar: '6 Eylül',
+  } : selectedWeek === 'PREV' ? {
+    Pazartesi: '24 Ağustos',
+    Salı: '25 Ağustos',
+    Çarşamba: '26 Ağustos',
+    Perşembe: '27 Ağustos',
+    Cuma: '28 Ağustos',
+    Cumartesi: '29 Ağustos',
+    Pazar: '30 Ağustos',
+  } : {
+    Pazartesi: '7 Eylül',
+    Salı: '8 Eylül',
+    Çarşamba: '9 Eylül',
+    Perşembe: '10 Eylül',
+    Cuma: '11 Eylül',
+    Cumartesi: '12 Eylül',
+    Pazar: '13 Eylül',
+  };
+
+  const handleJumpToToday = () => {
+    setSelectedWeek('CURRENT');
+    setActiveDay('Pazartesi');
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
+      {/* Header with Week Switcher */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -38,8 +60,42 @@ export const StudentWeeklyProgram: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">Haftalık Ders ve Ödev Programım</h1>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Haftanın tüm günlerine ait ödevlerini incele ve çalışma kayıtlarını gir
+            Haftanın günlerine göre düzenlenmiş çalışma programınızı takip edin.
           </p>
+        </div>
+
+        {/* 4 Simple Controls: Önceki Hafta, Bu Hafta, Sonraki Hafta, Bugün */}
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+          <button
+            onClick={() => setSelectedWeek('PREV')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              selectedWeek === 'PREV' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Önceki Hafta
+          </button>
+          <button
+            onClick={() => setSelectedWeek('CURRENT')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              selectedWeek === 'CURRENT' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Bu Hafta
+          </button>
+          <button
+            onClick={() => setSelectedWeek('NEXT')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              selectedWeek === 'NEXT' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Sonraki Hafta
+          </button>
+          <button
+            onClick={handleJumpToToday}
+            className="ml-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-xs"
+          >
+            Bugün
+          </button>
         </div>
       </div>
 

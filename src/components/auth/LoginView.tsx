@@ -114,16 +114,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       icon: Building2,
     },
     {
-      id: 'user-coord-zeynep',
-      name: 'Zeynep Kaya',
-      role: 'COORDINATOR',
-      roleLabel: 'Eğitim Koordinatörü',
-      email: 'zeynep.koordinator@tarhankoleji.k12.tr',
-      desc: 'Kurumsal Akademik İzleme, Şube İlerleme ve Raporlama Koordinatörü',
-      badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      icon: ShieldCheck,
-    },
-    {
       id: 'user-teacher-izmir',
       name: 'Selim Akın',
       role: 'TEACHER',

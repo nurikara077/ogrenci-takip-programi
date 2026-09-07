@@ -19,7 +19,7 @@ export interface DbUser {
   email: string;
   password_hash: string;
   full_name: string;
-  role: 'STUDENT' | 'TEACHER' | 'COORDINATOR' | 'INSTITUTE_ADMIN';
+  role: 'STUDENT' | 'TEACHER' | 'INSTITUTE_ADMIN';
   phone?: string;
   avatar_url?: string;
   is_active: boolean;
@@ -140,6 +140,8 @@ export interface DbDailyTask {
   subject_id: string;
   resource_id?: string;
   task_date: string;
+  start_date?: string;
+  due_date?: string;
   day_of_week: string;
   task_type: 'QUESTION_TARGET' | 'PAGE_RANGE' | 'PAGE_TARGET' | 'TOPIC_STUDY' | 'FREE_TASK' | string;
   target_question_count: number;
@@ -147,6 +149,15 @@ export interface DbDailyTask {
   start_page?: number;
   end_page?: number;
   description?: string;
+  status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'LATE_COMPLETED' | 'INCOMPLETE' | 'OVERDUE';
+  verification_status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  verified_by?: string;
+  verified_at?: string;
+  verification_note?: string;
+  original_task_date?: string;
+  completion_date?: string;
+  revision_count: number;
+  revision_history?: unknown[];
   is_completed: boolean;
   is_deleted: boolean;
   deleted_at?: string;

@@ -176,9 +176,9 @@ export const initialUsers: User[] = [
   },
   {
     id: 'user-coord-zeynep',
-    email: 'zeynep.koordinator@tarhankoleji.k12.tr',
-    fullName: 'Zeynep Kaya (Eğitim Koordinatörü)',
-    role: 'COORDINATOR',
+    email: 'zeynep.kaya@tarhankoleji.k12.tr',
+    fullName: 'Zeynep Kaya (Rehberlik / Öğretmen)',
+    role: 'TEACHER',
     phone: '0555 123 9988',
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
     organizationId: 'org-1',

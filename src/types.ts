@@ -1,4 +1,4 @@
-export type Role = 'TEACHER' | 'STUDENT' | 'INSTITUTE_ADMIN' | 'COORDINATOR';
+export type Role = 'TEACHER' | 'STUDENT' | 'INSTITUTE_ADMIN';
 
 export interface User {
   id: string;
@@ -34,6 +34,9 @@ export interface TeacherProfile {
   branchSubjectId: string; // Primary subject
   isIndependent: boolean; // Özel ders veren öğretmen
   bio?: string;
+  organizationId?: string;
+  branch?: string;
+  title?: string;
 }
 
 export interface StudentProfile {
@@ -43,6 +46,7 @@ export interface StudentProfile {
   studentNumber?: string;
   parentPhone?: string;
   notes?: string;
+  organizationId?: string;
 }
 
 export type RelationType = 'PRIVATE_TUTOR' | 'INSTITUTIONAL';
@@ -202,6 +206,8 @@ export interface DailyTask {
   resourceId?: string;
   resourceTopicId?: string;
   taskDate: string; // YYYY-MM-DD
+  startDate?: string; // YYYY-MM-DD (alias for taskDate)
+  dueDate?: string; // YYYY-MM-DD (Due date)
   dayOfWeek: 'Pazartesi' | 'Salı' | 'Çarşamba' | 'Perşembe' | 'Cuma' | 'Cumartesi' | 'Pazar';
   taskType: TaskType;
   targetQuestionCount?: number;
@@ -209,7 +215,6 @@ export interface DailyTask {
   startPage?: number;
   endPage?: number;
   description?: string;
-  dueDate?: string;
   status?: TaskStatus;
   verificationStatus?: VerificationStatus;
   verifiedBy?: string;

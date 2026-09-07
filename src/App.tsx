@@ -8,11 +8,16 @@ import { WeeklyPlanner } from './components/teacher/WeeklyPlanner';
 import { ResourcesView } from './components/teacher/ResourcesView';
 import { TeacherReports } from './components/teacher/TeacherReports';
 import { ClassAnalytics } from './components/teacher/ClassAnalytics';
+import { TeacherTasksView } from './components/teacher/TeacherTasksView';
 import { StudentDashboard } from './components/student/StudentDashboard';
+import { StudentTasksView } from './components/student/StudentTasksView';
 import { StudentWeeklyProgram } from './components/student/StudentWeeklyProgram';
 import { StudentResourcesView } from './components/student/StudentResourcesView';
 import { StudentPerformanceView } from './components/student/StudentPerformanceView';
+import { StudentOverdueTasksView } from './components/student/StudentOverdueTasksView';
 import { InstituteDashboard } from './components/admin/InstituteDashboard';
+import { AdminTeachersView } from './components/admin/AdminTeachersView';
+import { AdminClassesView } from './components/admin/AdminClassesView';
 import { ClassDetailView } from './components/admin/ClassDetailView';
 import { NotificationsModal } from './components/common/NotificationsModal';
 import { LoginView } from './components/auth/LoginView';
@@ -36,8 +41,6 @@ function MainAppContent() {
       setActiveTab('student-dashboard');
     } else if (currentUser?.role === 'INSTITUTE_ADMIN') {
       setActiveTab('admin-dashboard');
-    } else if (currentUser?.role === 'COORDINATOR') {
-      setActiveTab('coordinator-analytics');
     }
     setSelectedStudentId(null);
     setSelectedClassId(null);
@@ -90,6 +93,10 @@ function MainAppContent() {
           />
         )}
 
+        {activeTab === 'teacher-tasks' && (
+          <TeacherTasksView onSelectStudent={handleSelectStudent} />
+        )}
+
         {activeTab === 'teacher-students' && (
           <StudentList
             onSelectStudent={handleSelectStudent}
@@ -130,12 +137,20 @@ function MainAppContent() {
           <StudentDashboard onNavigateTab={setActiveTab} />
         )}
 
+        {activeTab === 'student-tasks' && (
+          <StudentTasksView />
+        )}
+
         {activeTab === 'student-weekly' && (
           <StudentWeeklyProgram />
         )}
 
         {activeTab === 'student-resources' && (
           <StudentResourcesView />
+        )}
+
+        {activeTab === 'student-overdue' && (
+          <StudentOverdueTasksView onNavigateTab={setActiveTab} />
         )}
 
         {activeTab === 'student-performance' && (
@@ -150,12 +165,39 @@ function MainAppContent() {
           />
         )}
 
+        {activeTab === 'admin-teachers' && (
+          <AdminTeachersView onNavigateTab={setActiveTab} />
+        )}
+
         {activeTab === 'admin-classes' && (
+          <AdminClassesView onSelectClass={handleSelectClass} />
+        )}
+
+        {activeTab === 'admin-students' && (
+          <StudentList
+            onSelectStudent={handleSelectStudent}
+            onOpenPlannerForStudent={handleOpenPlannerForStudent}
+          />
+        )}
+
+        {activeTab === 'admin-resources' && (
+          <ResourcesView initialSelectedStudentId={selectedStudentId || undefined} />
+        )}
+
+        {activeTab === 'admin-tasks' && (
+          <TeacherTasksView onSelectStudent={handleSelectStudent} />
+        )}
+
+        {activeTab === 'admin-progress' && (
           <ClassDetailView
             classId={selectedClassId || 'class-8a'}
             onBack={() => setActiveTab('admin-dashboard')}
             onSelectStudent={handleSelectStudent}
           />
+        )}
+
+        {activeTab === 'admin-reports' && (
+          <TeacherReports onSelectStudent={handleSelectStudent} />
         )}
 
         {activeTab === 'admin-class-detail' && (
@@ -164,23 +206,6 @@ function MainAppContent() {
             onBack={() => setActiveTab('admin-dashboard')}
             onSelectStudent={handleSelectStudent}
           />
-        )}
-
-        {/* COORDINATOR VIEWS */}
-        {activeTab === 'coordinator-analytics' && (
-          <ClassAnalytics />
-        )}
-
-        {activeTab === 'coordinator-classes' && (
-          <ClassDetailView
-            classId={selectedClassId || 'class-8a'}
-            onBack={() => setActiveTab('coordinator-analytics')}
-            onSelectStudent={handleSelectStudent}
-          />
-        )}
-
-        {activeTab === 'coordinator-reports' && (
-          <TeacherReports onSelectStudent={handleSelectStudent} />
         )}
       </main>
 

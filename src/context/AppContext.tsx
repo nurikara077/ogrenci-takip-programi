@@ -20,6 +20,7 @@ import {
   TaskStatus,
   VerificationStatus,
   AuditLog,
+  TaskRevision,
 } from '../types';
 import { MigrationService, MigrationSummary, BackupData } from '../services/migrationService';
 import { DEFAULT_SIMULATION_DATE } from '../utils/dateUtils';
@@ -139,6 +140,18 @@ interface AppContextType {
   getTeacherAssignedResources: (teacherUserIdOrId: string) => Resource[];
   canTeacherAccessTask: (teacherUserIdOrId: string, taskId: string) => boolean;
   getTeacherVisibleTasks: (teacherUserIdOrId: string, studentId?: string) => DailyTask[];
+  isTaskActiveOnDate: (task: DailyTask, dateStr: string) => boolean;
+  isTaskOverdue: (task: DailyTask, asOfDate: string) => boolean;
+  getTeacherDashboardMetrics: (
+    teacherUserIdOrId: string,
+    asOfDate?: string
+  ) => {
+    assignedStudentsCount: number;
+    activeTasksCount: number;
+    pendingVerificationCount: number;
+    overdueTasksCount: number;
+    myTasks: DailyTask[];
+  };
 
   addResourceTopic: (
     resourceId: string,
@@ -507,7 +520,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     description?: string;
     topics?: { title: string; startPage: number; endPage: number }[];
   }): Resource => {
-    if (currentUser.role !== 'INSTITUTE_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+    if (currentUser.role !== 'INSTITUTE_ADMIN') {
       throw new Error('Yalnızca kurum yöneticisi kurumsal kaynak ekleyebilir.');
     }
 
@@ -561,7 +574,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateResource = (resourceId: string, updates: Partial<Resource>) => {
-    if (currentUser.role !== 'INSTITUTE_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+    if (currentUser.role !== 'INSTITUTE_ADMIN') {
       throw new Error('Yalnızca kurum yöneticisi kaynak bilgilerini güncelleyebilir.');
     }
     const res = resources.find((r) => r.id === resourceId);
@@ -587,7 +600,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const archiveResource = (resourceId: string): Resource => {
-    if (currentUser.role !== 'INSTITUTE_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+    if (currentUser.role !== 'INSTITUTE_ADMIN') {
       throw new Error('Yalnızca kurum yöneticisi kaynak arşivleyebilir.');
     }
     const res = resources.find((r) => r.id === resourceId);
@@ -629,7 +642,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     assignedBy?: string
   ): TeacherResource => {
     const assignerUser = assignedBy ? users.find((u) => u.id === assignedBy) : currentUser;
-    if (assignerUser && assignerUser.role !== 'INSTITUTE_ADMIN' && assignerUser.role !== 'SUPER_ADMIN') {
+    if (assignerUser && assignerUser.role !== 'INSTITUTE_ADMIN') {
       throw new Error('Yalnızca kurum yöneticisi öğretmenlere kaynak atayabilir.');
     }
 
@@ -714,7 +727,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const unassignResourceFromTeacher = (resourceId: string, teacherId: string) => {
-    if (currentUser.role !== 'INSTITUTE_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+    if (currentUser.role !== 'INSTITUTE_ADMIN') {
       throw new Error('Yalnızca kurum yöneticisi kaynak atamasını kaldırabilir.');
     }
     const tp = teacherProfiles.find((t) => t.id === teacherId || t.userId === teacherId);
@@ -757,7 +770,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
 
-    if (effectiveUser.role === 'INSTITUTE_ADMIN' || effectiveUser.role === 'SUPER_ADMIN') {
+    if (effectiveUser.role === 'INSTITUTE_ADMIN') {
       return true;
     }
 
@@ -765,16 +778,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (res.isArchived || res.status === 'ARCHIVED') {
         return false;
       }
-      const teacherProfileId = tp?.id || teacherProfiles.find((t) => t.userId === effectiveUser.id)?.id;
-      if (!teacherProfileId) return false;
+      const teacherProfile = tp || teacherProfiles.find((t) => t.userId === effectiveUser.id);
+      if (!teacherProfile) return false;
 
-      return teacherResources.some(
-        (tr) =>
-          tr.teacherId === teacherProfileId &&
-          tr.resourceId === resourceId &&
-          tr.isActive === true &&
-          (tr.institutionId === userOrgId || tr.organizationId === userOrgId)
+      // Branş İzolasyonu: Öğretmen asla başka branşın kaynağına erişemez
+      if (teacherProfile.branchSubjectId && res.subjectId && teacherProfile.branchSubjectId !== res.subjectId) {
+        return false;
+      }
+
+      const hasExplicitAssignments = teacherResources.some(
+        (tr) => tr.teacherId === teacherProfile.id && tr.isActive === true
       );
+
+      if (hasExplicitAssignments) {
+        return teacherResources.some(
+          (tr) =>
+            tr.teacherId === teacherProfile.id &&
+            tr.resourceId === resourceId &&
+            tr.isActive === true &&
+            (tr.institutionId === userOrgId || tr.organizationId === userOrgId)
+        );
+      }
+
+      // Explicit atama yoksa kendi branşının tüm aktif kurum kaynaklarına erişir
+      return teacherProfile.branchSubjectId === res.subjectId;
     }
 
     return false;
@@ -788,7 +815,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const userOrgId = effectiveUser.organizationId || 'org-1';
 
-    if (effectiveUser.role === 'INSTITUTE_ADMIN' || effectiveUser.role === 'SUPER_ADMIN') {
+    if (effectiveUser.role === 'INSTITUTE_ADMIN') {
       return resources.filter(
         (r) => (r.institutionId || r.organizationId || 'org-1') === userOrgId && !r.isArchived && r.status !== 'ARCHIVED'
       );
@@ -812,7 +839,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const userOrgId = effectiveUser.organizationId || 'org-1';
 
-    if (effectiveUser.role === 'INSTITUTE_ADMIN' || effectiveUser.role === 'SUPER_ADMIN') {
+    if (effectiveUser.role === 'INSTITUTE_ADMIN') {
       const taskTeacher = teacherProfiles.find((t) => t.id === task.teacherId);
       const taskTeacherUser = taskTeacher ? users.find((u) => u.id === taskTeacher.userId) : undefined;
       return (taskTeacherUser?.organizationId || 'org-1') === userOrgId;
@@ -851,7 +878,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const userOrgId = effectiveUser.organizationId || 'org-1';
 
-    if (effectiveUser.role === 'INSTITUTE_ADMIN' || effectiveUser.role === 'SUPER_ADMIN') {
+    if (effectiveUser.role === 'INSTITUTE_ADMIN') {
       return tasks.filter((task) => {
         const taskTeacher = teacherProfiles.find((t) => t.id === task.teacherId);
         const taskTeacherUser = taskTeacher ? users.find((u) => u.id === taskTeacher.userId) : undefined;
@@ -864,6 +891,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return [];
+  };
+
+  const isTaskActiveOnDate = (task: DailyTask, dateStr: string): boolean => {
+    const start = task.startDate || task.taskDate;
+    const due = task.dueDate || task.taskDate;
+    return start <= dateStr && dateStr <= due;
+  };
+
+  const isTaskOverdue = (task: DailyTask, asOfDate: string): boolean => {
+    if (task.isCompleted || task.verificationStatus === 'VERIFIED') return false;
+    const due = task.dueDate || task.taskDate;
+    return asOfDate > due;
+  };
+
+  const getTeacherDashboardMetrics = (teacherUserIdOrId: string, asOfDate: string = '2026-08-31') => {
+    const user = users.find((u) => u.id === teacherUserIdOrId);
+    const tp = teacherProfiles.find((t) => t.id === teacherUserIdOrId || t.userId === teacherUserIdOrId);
+    const effectiveUser = user || (tp ? users.find((u) => u.id === tp.userId) : undefined);
+    const teacherProfile = tp || (effectiveUser ? teacherProfiles.find((t) => t.userId === effectiveUser.id) : undefined);
+
+    if (!teacherProfile || !effectiveUser) {
+      return {
+        assignedStudentsCount: 0,
+        activeTasksCount: 0,
+        pendingVerificationCount: 0,
+        overdueTasksCount: 0,
+        myTasks: [],
+      };
+    }
+
+    // My tasks strictly isolated to this teacher
+    const myTasks = dailyTasks.filter(
+      (t) => t.teacherId === teacherProfile.id && !t.isDeleted
+    );
+
+    const myStudents = getTeacherStudents(effectiveUser.id);
+
+    // Active tasks: tasks currently running (asOfDate <= due && !isCompleted), or in progress
+    const activeTasks = myTasks.filter((t) => {
+      const due = t.dueDate || t.taskDate;
+      if (t.isCompleted || t.verificationStatus === 'VERIFIED') return false;
+      return asOfDate <= due;
+    });
+
+    // Pending verification: student completed or study records entered, but not verified yet
+    const pendingVerification = myTasks.filter((t) => {
+      const calc = getTaskRealization(t.id);
+      return calc.verificationStatus === 'PENDING' && (t.isCompleted || calc.actualQuestions > 0 || calc.actualMinutes > 0);
+    });
+
+    // Overdue tasks: past due date and not completed
+    const overdueTasks = myTasks.filter((t) => {
+      const due = t.dueDate || t.taskDate;
+      return asOfDate > due && !t.isCompleted && t.verificationStatus !== 'VERIFIED';
+    });
+
+    return {
+      assignedStudentsCount: myStudents.length,
+      activeTasksCount: activeTasks.length,
+      pendingVerificationCount: pendingVerification.length,
+      overdueTasksCount: overdueTasks.length,
+      myTasks,
+    };
   };
 
   // Topic Management (Requirement 2)
@@ -1868,6 +1958,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const task = dailyTasks.find((t) => t.id === recordData.dailyTaskId);
     if (!task) throw new Error('Görev bulunamadı');
 
+    const currentStudent = studentProfiles.find((sp) => sp.userId === currentUser.id);
+    if (currentUser.role !== 'STUDENT' || currentStudent?.id !== task.studentId) {
+      throw new Error('Yalnızca öğrenci kendi görevi için çalışma kaydı girebilir.');
+    }
+    if (task.verificationStatus === 'VERIFIED') {
+      throw new Error('Bu görev öğretmen tarafından doğrulandı ve öğrenci kaydı kilitlendi.');
+    }
+
     // ARALIK KONTROLÜ (Requirement 5):
     if (task.resourceId && recordData.completedStartPage !== undefined && recordData.completedEndPage !== undefined) {
       const pStart = Math.min(recordData.completedStartPage, recordData.completedEndPage);
@@ -1918,12 +2016,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
 
-    // Update task completion based on target
+    // Completed student work moves to the teacher's verification queue.
     const targetQ = task.targetQuestionCount || 0;
     const isTargetMet = targetQ > 0 ? recordData.actualQuestionCount >= targetQ : true;
+    const nextStatus: TaskStatus = isTargetMet
+      ? 'COMPLETED'
+      : task.status === 'PLANNED'
+        ? 'IN_PROGRESS'
+        : task.status || 'IN_PROGRESS';
 
     setDailyTasks((prev) =>
-      prev.map((t) => (t.id === recordData.dailyTaskId ? { ...t, isCompleted: isTargetMet } : t))
+      prev.map((t) =>
+        t.id === recordData.dailyTaskId
+          ? {
+              ...t,
+              isCompleted: isTargetMet,
+              status: nextStatus,
+              verificationStatus: isTargetMet ? 'PENDING' : t.verificationStatus || 'PENDING',
+              completionDate: isTargetMet ? DEFAULT_SIMULATION_DATE : t.completionDate,
+            }
+          : t
+      )
     );
 
     const updatedRecords = [...studyRecords, newRecord];
@@ -1970,6 +2083,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateStudyRecord = (recordId: string, updates: Partial<StudyRecord>): StudyRecord => {
     const existing = studyRecords.find((r) => r.id === recordId);
     if (!existing) throw new Error('Çalışma kaydı bulunamadı');
+
+    const lockedTask = dailyTasks.find((t) => t.id === existing.dailyTaskId);
+    if (lockedTask?.verificationStatus === 'VERIFIED' && currentUser.role === 'STUDENT') {
+      throw new Error('Öğretmen tarafından doğrulanan bir görevin öğrenci kaydı değiştirilemez.');
+    }
 
     const updatedRecord: StudyRecord = { ...existing, ...updates };
 
@@ -2025,6 +2143,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteStudyRecord = (recordId: string) => {
     const recordToDelete = studyRecords.find((r) => r.id === recordId);
     if (!recordToDelete) return;
+
+    const lockedTask = dailyTasks.find((t) => t.id === recordToDelete.dailyTaskId);
+    if (lockedTask?.verificationStatus === 'VERIFIED' && currentUser.role === 'STUDENT') {
+      throw new Error('Öğretmen tarafından doğrulanan bir görevin öğrenci kaydı silinemez.');
+    }
 
     const taskId = recordToDelete.dailyTaskId;
     const studentId = recordToDelete.studentId;
@@ -2236,7 +2359,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!task) return { success: false, error: 'Görev bulunamadı.' };
 
     const teacher = users.find((u) => u.id === teacherId);
-    if (!teacher || (teacher.role !== 'TEACHER' && teacher.role !== 'INSTITUTE_ADMIN' && teacher.role !== 'COORDINATOR')) {
+    if (!teacher || (teacher.role !== 'TEACHER' && teacher.role !== 'INSTITUTE_ADMIN')) {
       return { success: false, error: 'Yetkisiz işlem: Sadece öğretmenler veya yöneticiler görev doğrulayabilir.' };
     }
 
@@ -2250,6 +2373,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const prevVerification = task.verificationStatus || 'PENDING';
+    const hasStudentSubmission = task.isCompleted || studyRecords.some((record) => record.dailyTaskId === taskId);
+    if (!hasStudentSubmission) {
+      return { success: false, error: 'Öğrenci çalışma kaydı girmeden görev doğrulanamaz.' };
+    }
     const verifiedTimestamp = new Date().toISOString();
 
     setDailyTasks((prev) =>
@@ -2287,7 +2414,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!task) return { success: false, error: 'Görev bulunamadı.' };
 
     const teacher = users.find((u) => u.id === teacherId);
-    if (!teacher || (teacher.role !== 'TEACHER' && teacher.role !== 'INSTITUTE_ADMIN' && teacher.role !== 'COORDINATOR')) {
+    if (!teacher || (teacher.role !== 'TEACHER' && teacher.role !== 'INSTITUTE_ADMIN')) {
       return { success: false, error: 'Yetkisiz işlem: Sadece öğretmenler veya yöneticiler bu işlemi yapabilir.' };
     }
 
@@ -2351,8 +2478,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const task = dailyTasks.find((t) => t.id === taskId);
     if (!task) return { success: false, error: 'Görev bulunamadı.' };
 
-    if (task.studentId !== studentId) {
+    const currentStudent = studentProfiles.find((sp) => sp.userId === currentUser.id);
+    if (currentUser.role !== 'STUDENT' || currentStudent?.id !== studentId || task.studentId !== studentId) {
       return { success: false, error: 'Yetkisiz işlem: Başka bir öğrencinin görevini tamamlayamazsınız.' };
+    }
+    if (task.verificationStatus === 'VERIFIED') {
+      return { success: false, error: 'Öğretmen tarafından doğrulanan görev öğrenci tarafında kilitlidir.' };
     }
 
     saveStudyRecord({
@@ -2365,7 +2496,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const todayStr = DEFAULT_SIMULATION_DATE;
-    const isLate = task.taskDate < todayStr;
+    const dueDate = task.dueDate || task.taskDate;
+    const isLate = dueDate < todayStr;
 
     setDailyTasks((prev) =>
       prev.map((t) =>
@@ -2617,6 +2749,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getTeacherAssignedResources,
         canTeacherAccessTask,
         getTeacherVisibleTasks,
+        isTaskActiveOnDate,
+        isTaskOverdue,
+        getTeacherDashboardMetrics,
         addResourceTopic,
         updateResourceTopic,
         deleteResourceTopic,

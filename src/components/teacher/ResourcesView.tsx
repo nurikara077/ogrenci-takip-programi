@@ -59,7 +59,7 @@ export const ResourcesView: React.FC<ResourcesViewProps> = ({ initialSelectedStu
     currentUser
   } = useApp();
 
-  const isInstituteAdmin = currentUser.role === 'INSTITUTE_ADMIN' || currentUser.role === 'SUPER_ADMIN';
+  const isInstituteAdmin = currentUser.role === 'INSTITUTE_ADMIN';
   const userOrgId = currentUser.organizationId || 'org-1';
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -583,10 +583,11 @@ export const ResourcesView: React.FC<ResourcesViewProps> = ({ initialSelectedStu
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Tümü ({resources.length})
+                Tümü ({visibleResources.length})
               </button>
               {subjects.map((sub) => {
-                const count = resources.filter((r) => r.subjectId === sub.id).length;
+                const count = visibleResources.filter((r) => r.subjectId === sub.id).length;
+                if (!isInstituteAdmin && count === 0) return null;
                 return (
                   <button
                     key={sub.id}

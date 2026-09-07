@@ -12,15 +12,26 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { DailyTask } from '../../types';
+import { DEFAULT_SIMULATION_DATE } from '../../utils/dateUtils';
 
 interface StudyRecordModalProps {
   isOpen: boolean;
   onClose: () => void;
   task: DailyTask | null;
+  onSuccess?: () => void;
 }
 
-export const StudyRecordModal: React.FC<StudyRecordModalProps> = ({ isOpen, onClose, task }) => {
-  const { subjects, resources, studentResources, saveStudyRecord } = useApp();
+export const StudyRecordModal: React.FC<StudyRecordModalProps> = ({ isOpen, onClose, task, onSuccess }) => {
+  const {
+    currentUser,
+    studentProfiles,
+    subjects,
+    resources,
+    studentResources,
+    isTaskOverdue,
+    saveStudyRecord,
+    completeLateDailyTask,
+  } = useApp();
 
   const [actualQuestions, setActualQuestions] = useState<number>(10);
   const [actualMinutes, setActualMinutes] = useState<number>(45);
@@ -50,6 +61,8 @@ export const StudyRecordModal: React.FC<StudyRecordModalProps> = ({ isOpen, onCl
 
   const subject = subjects.find((s) => s.id === task.subjectId);
   const resource = resources.find((r) => r.id === task.resourceId);
+  const currentStudent = studentProfiles.find((profile) => profile.userId === currentUser.id);
+  const isOverdueTask = isTaskOverdue(task, DEFAULT_SIMULATION_DATE);
 
   // Success rate preview calculations
   const questionSuccessPercent = (task.targetQuestionCount && task.targetQuestionCount > 0)
@@ -83,19 +96,41 @@ export const StudyRecordModal: React.FC<StudyRecordModalProps> = ({ isOpen, onCl
     }
 
     try {
-      saveStudyRecord({
-        dailyTaskId: task.id,
-        studentId: task.studentId,
-        subjectId: task.subjectId,
-        resourceId: task.resourceId,
-        recordDate: task.taskDate,
-        actualQuestionCount: Number(actualQuestions),
-        actualDurationMinutes: Number(actualMinutes),
-        completedStartPage: startPage ? Number(startPage) : undefined,
-        completedEndPage: endPage ? Number(endPage) : undefined,
-        studentNotes: notes.trim() || undefined,
-      });
+      if (!currentStudent || currentStudent.id !== task.studentId) {
+        throw new Error('Yalnızca kendi göreviniz için çalışma kaydı girebilirsiniz.');
+      }
 
+      const actualQuestionCount = Number(actualQuestions);
+      const actualDurationMinutes = Number(actualMinutes);
+      const completedStartPage = startPage ? Number(startPage) : undefined;
+      const completedEndPage = endPage ? Number(endPage) : undefined;
+      const studentNotes = notes.trim() || undefined;
+
+      if (isOverdueTask) {
+        const result = completeLateDailyTask(
+          task.id,
+          currentStudent.id,
+          actualQuestionCount,
+          actualDurationMinutes,
+          completedStartPage,
+          completedEndPage,
+          studentNotes,
+        );
+        if (!result.success) {
+          throw new Error(result.error || 'Gecikmiş görev tamamlanamadı.');
+        }
+      } else {
+        saveStudyRecord({
+          dailyTaskId: task.id,
+          actualQuestionCount,
+          actualDurationMinutes,
+          completedStartPage,
+          completedEndPage,
+          studentNotes,
+        });
+      }
+
+      onSuccess?.();
       onClose();
     } catch (err: any) {
       setErrorMessage(err.message || 'Kayıt kaydedilirken bir hata oluştu.');

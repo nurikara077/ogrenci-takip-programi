@@ -404,7 +404,7 @@ describe('FAZ 4 — Production Altyapısı & Otomasyon Test Paketi', () => {
       expect(r5.displayText).toBe('%0');
     });
 
-    it('FAZ 4 RBAC Kuralı: DB / Multi-Tenant butonu STUDENT, TEACHER, COORDINATOR rollerine gizlenmelidir', () => {
+    it('FAZ 4 RBAC Kuralı: DB / Multi-Tenant butonu öğrenci ve öğretmen rollerine gizlenmelidir', () => {
       const isDbButtonVisibleInNavbar = (role: string) => {
         // Main navbar never shows DB button to regular users
         return false;
@@ -416,11 +416,9 @@ describe('FAZ 4 — Production Altyapısı & Otomasyon Test Paketi', () => {
 
       expect(isDbButtonVisibleInNavbar('STUDENT')).toBe(false);
       expect(isDbButtonVisibleInNavbar('TEACHER')).toBe(false);
-      expect(isDbButtonVisibleInNavbar('COORDINATOR')).toBe(false);
 
       expect(canAccessDatabasePanel('STUDENT')).toBe(false);
       expect(canAccessDatabasePanel('TEACHER')).toBe(false);
-      expect(canAccessDatabasePanel('COORDINATOR')).toBe(false);
       expect(canAccessDatabasePanel('INSTITUTE_ADMIN')).toBe(true);
     });
   });
@@ -1023,10 +1021,10 @@ describe('FAZ 4 — Production Altyapısı & Otomasyon Test Paketi', () => {
       expect(canAccessDbView('TEACHER')).toBe(false);
     });
 
-    // TEST 57: RBAC: COORDINATOR rolü DB / Multi-Tenant ekranına doğrudan yönlendirilemez
-    it('TEST 57: RBAC: COORDINATOR rolündeki kullanıcı DB / Multi-Tenant ekranına erişememelidir', () => {
+    // TEST 57: RBAC: Yönetici olmayan roller DB / Multi-Tenant ekranına doğrudan yönlendirilemez
+    it('TEST 57: RBAC: Öğretmen DB / Multi-Tenant ekranına erişememelidir', () => {
       const canAccessDbView = (role: string) => role === 'INSTITUTE_ADMIN';
-      expect(canAccessDbView('COORDINATOR')).toBe(false);
+      expect(canAccessDbView('TEACHER')).toBe(false);
     });
 
     // TEST 58: RBAC: INSTITUTE_ADMIN rolü kurum ayarlarına ve teknik denetime erişebilir

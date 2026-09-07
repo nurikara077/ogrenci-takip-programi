@@ -29,7 +29,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigateTa
     resources,
     studentResources,
     getResourceProgress,
-    getTaskRealization 
+    getTaskRealization,
+    isTaskActiveOnDate
   } = useApp();
 
   const currentStudent = studentProfiles.find((sp) => sp.userId === currentUser.id);
@@ -42,9 +43,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigateTa
   // Today is Pazartesi in current simulation week: 2026-08-31
   const todayDateStr = '2026-08-31';
 
-  // Today's tasks
+  // Today's tasks (active on today)
   const todaysTasks = dailyTasks.filter(
-    (t) => t.studentId === studentId && t.taskDate === todayDateStr
+    (t) => t.studentId === studentId && !t.isDeleted && isTaskActiveOnDate(t, todayDateStr)
   );
 
   // Today's study records
